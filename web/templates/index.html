@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Security System</title>
+</head>
+
+<body style="background:black; color:white; text-align:center;">
+
+    <h1>🔒 AI Security System</h1>
+
+    <h2 id="face">Face: Unknown</h2>
+    <h3 id="system">System: ---</h3>
+    <h3 id="alarm">Alarm: ---</h3>
+
+    <button onclick="arm()" style="padding:10px;">🟢 ARM</button>
+    <button onclick="disarm()" style="padding:10px;">🔴 DISARM</button>
+
+    <br><br>
+
+    <img src="/video" width="70%">
+
+    <h3>Logs:</h3>
+    <div id="logs"></div>
+
+    <script>
+        function arm() {
+            fetch('/arm');
+        }
+
+        function disarm() {
+            fetch('/disarm');
+        }
+
+        setInterval(() => {
+
+            fetch('/logs')
+                .then(res => res.json())
+                .then(data => {
+                    let logsDiv = document.getElementById("logs");
+                    logsDiv.innerHTML = "";
+                    data.forEach(log => {
+                        let p = document.createElement("p");
+                        p.textContent = log;
+                        logsDiv.appendChild(p);
+                    });
+                });
+
+            fetch('/status')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("face").innerText =
+                        "Face: " + data.name;
+
+                    document.getElementById("system").innerText =
+                        "System: " + (data.armed ? "ARMED" : "DISARMED");
+
+                    document.getElementById("alarm").innerText =
+                        "Alarm: " + (data.alarm ? "ON" : "OFF");
+                });
+
+        }, 1000);
+    </script>
+
+</body>
+</html>

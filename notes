@@ -1,0 +1,33 @@
+sudo nano /etc/systemd/system/ai_security.service
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable ai_security
+sudo systemctl start ai_security
+sudo systemctl stop ai_security
+
+
+
+* STOP the system
+sudo systemctl stop ai_security
+
+* START again
+sudo systemctl start ai_security
+
+* RESTART (after code changes)
+sudo systemctl restart ai_security
+
+* DISABLE auto-start (important)
+sudo systemctl disable ai_security
+
+* ENABLE auto-start
+sudo systemctl enable ai_security
+
+* CHECK STATUS
+sudo systemctl status ai_security
+
+* VIEW LIVE LOGS (VERY USEFUL)
+journalctl -u ai_security -f
+
+
+* FORCE STOP (if stuck)
+sudo systemctl kill ai_security
