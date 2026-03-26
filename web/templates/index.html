@@ -12,8 +12,8 @@
     <h3 id="system">System: ---</h3>
     <h3 id="alarm">Alarm: ---</h3>
 
-    <button onclick="arm()" style="padding:10px;">🟢 ARM</button>
-    <button onclick="disarm()" style="padding:10px;">🔴 DISARM</button>
+    <button onclick="arm()">🟢 ARM</button>
+    <button onclick="disarm()">🔴 DISARM</button>
 
     <br><br>
 
@@ -22,13 +22,26 @@
     <h3>Logs:</h3>
     <div id="logs"></div>
 
+    <h3>Manage Faces</h3>
+
+    <input type="text" id="name" placeholder="Enter name">
+    <br><br>
+
+    <button onclick="addPerson()">➕ Add Person</button>
+    <button onclick="removePerson()">❌ Remove Person</button>
+
     <script>
-        function arm() {
-            fetch('/arm');
+        function arm() { fetch('/arm'); }
+        function disarm() { fetch('/disarm'); }
+
+        function addPerson() {
+            let name = document.getElementById("name").value;
+            fetch('/add_person/' + name);
         }
 
-        function disarm() {
-            fetch('/disarm');
+        function removePerson() {
+            let name = document.getElementById("name").value;
+            fetch('/remove_person/' + name);
         }
 
         setInterval(() => {

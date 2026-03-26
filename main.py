@@ -11,6 +11,10 @@ from core import state
 import time
 import threading
 
+
+
+
+
 # =========================
 # LOG FUNCTION
 # =========================
@@ -27,6 +31,7 @@ def run_system():
     alarm = AlarmSystem()
     cam = Camera()
     face_rec = FaceRecognition()
+    state.face_rec = face_rec
     telegram = TelegramBot(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
 
     add_log("🚀 AI Security System Running...")
