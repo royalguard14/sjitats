@@ -36,7 +36,6 @@
 
         .card h2 {
             margin-top: 0;
-            font-size: 18px;
             color: #38bdf8;
         }
 
@@ -73,8 +72,16 @@
         .person {
             display: flex;
             justify-content: space-between;
-            padding: 5px 0;
             border-bottom: 1px solid #1e293b;
+            padding: 5px 0;
+        }
+
+        input {
+            width: 100%;
+            margin: 5px 0;
+            padding: 6px;
+            border-radius: 5px;
+            border: none;
         }
 
         button {
@@ -89,13 +96,6 @@
         button:hover {
             background: #0ea5e9;
         }
-
-        input {
-            padding: 6px;
-            border-radius: 5px;
-            border: none;
-            margin-right: 5px;
-        }
     </style>
 </head>
 <body>
@@ -107,13 +107,11 @@
     <!-- LEFT SIDE -->
     <div>
 
-        <!-- CAMERA -->
         <div class="card">
             <h2>📷 Live Camera</h2>
             <img id="video" src="/video">
         </div>
 
-        <!-- LOGS -->
         <div class="card">
             <h2>📜 Logs</h2>
             <div id="logs"></div>
@@ -126,20 +124,20 @@
 
         <!-- STATUS -->
         <div class="card">
-            <h2>📊 System Status</h2>
+            <h2>📊 Status</h2>
 
             <div class="status">
-                <span>System:</span>
+                <span>System</span>
                 <span id="armed" class="badge disarmed">DISARMED</span>
             </div>
 
             <div class="status">
-                <span>Alarm:</span>
+                <span>Alarm</span>
                 <span id="alarm" class="badge">OFF</span>
             </div>
 
             <div class="status">
-                <span>Last Detection:</span>
+                <span>Last</span>
                 <span id="name">None</span>
             </div>
 
@@ -162,81 +160,56 @@
                 {% endfor %}
             </div>
 
+            <input id="newName" placeholder="Enter name">
+            <button onclick="addPerson()">Add Person</button>
+        </div>
+
+        <!-- SETTINGS -->
+        <div class="card">
+            <h2>⚙️ Settings</h2>
+
+            <label><input type="checkbox" id="motion"> Enable Motion</label><br>
+            <label><input type="checkbox" id="face"> Enable Face</label><br>
+            <label><input type="checkbox" id="notif"> Enable Telegram</label><br>
+
             <br>
 
-            <input id="newName" placeholder="Enter name">
-            <button onclick="addPerson()">Add</button>
+            <label>Motion Sensitivity</label>
+            <input id="motion_sens" type="number" step="0.1">
+
+            <label>Face Threshold</label>
+            <input id="face_thresh" type="number" step="0.1">
+
+            <br>
+
+            <h3>📩 Telegram</h3>
+
+            <label>Bot Token</label>
+            <input id="telegram_token" placeholder="Enter token">
+
+            <label>Chat ID</label>
+            <input id="telegram_chat" placeholder="Enter chat id">
+
+            <br>
+
+            <button onclick="saveSettings()">Save Settings</button>
         </div>
 
     </div>
 
 </div>
 
-
-<div class="card">
-    <h2>⚙️ Settings</h2>
-
-    <label><input type="checkbox" id="motion"> Motion</label><br>
-    <label><input type="checkbox" id="face"> Face</label><br>
-    <label><input type="checkbox" id="notif"> Notifications</label><br>
-
-    <br>
-
-    <label>Motion Sensitivity</label>
-    <input id="motion_sens" type="number" step="0.1"><br>
-
-    <label>Face Threshold</label>
-    <input id="face_thresh" type="number" step="0.1"><br>
-
-    <br>
-    <button onclick="saveSettings()">Save</button>
-</div>
-
 <script>
-async function loadSettings() {
-    const res = await fetch('/settings');
-    const s = await res.json();
 
-    document.getElementById('motion').checked = s.ENABLE_MOTION;
-    document.getElementById('face').checked = s.ENABLE_FACE_RECOGNITION;
-    document.getElementById('notif').checked = s.ENABLE_NOTIFICATIONS;
-
-    document.getElementById('motion_sens').value = s.MOTION_SENSITIVITY;
-    document.getElementById('face_thresh').value = s.FACE_RECOGNITION_THRESHOLD;
-}
-
-async function saveSettings() {
-    const data = {
-        ENABLE_MOTION: document.getElementById('motion').checked,
-        ENABLE_FACE_RECOGNITION: document.getElementById('face').checked,
-        ENABLE_NOTIFICATIONS: document.getElementById('notif').checked,
-        MOTION_SENSITIVITY: parseFloat(document.getElementById('motion_sens').value),
-        FACE_RECOGNITION_THRESHOLD: parseFloat(document.getElementById('face_thresh').value)
-    };
-
-    await fetch('/update_settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    });
-
-    alert("Saved!");
-}
-
-loadSettings();
-</script>
-
-<script>
     // =========================
     // LOGS
     // =========================
     async function fetchLogs() {
         const res = await fetch('/logs');
         const logs = await res.json();
-
-        const logsDiv = document.getElementById('logs');
-        logsDiv.innerHTML = logs.map(l => "• " + l).join('<br>');
-        logsDiv.scrollTop = logsDiv.scrollHeight;
+        const div = document.getElementById('logs');
+        div.innerHTML = logs.map(l => "• " + l).join("<br>");
+        div.scrollTop = div.scrollHeight;
     }
     setInterval(fetchLogs, 1000);
 
@@ -261,15 +234,10 @@ loadSettings();
     setInterval(fetchStatus, 1000);
 
     // =========================
-    // ARM / DISARM
+    // ARM/DISARM
     // =========================
-    function arm() {
-        fetch('/arm');
-    }
-
-    function disarm() {
-        fetch('/disarm');
-    }
+    function arm() { fetch('/arm'); }
+    function disarm() { fetch('/disarm'); }
 
     // =========================
     // ADD PERSON
@@ -283,7 +251,7 @@ loadSettings();
             body: new URLSearchParams({name})
         });
 
-        alert("📸 Capturing faces for 10 seconds...");
+        alert("📸 Capturing for 10 seconds...");
         setTimeout(() => location.reload(), 11000);
     }
 
@@ -294,6 +262,49 @@ loadSettings();
         await fetch(`/remove_person/${name}`);
         location.reload();
     }
+
+    // =========================
+    // SETTINGS
+    // =========================
+    async function loadSettings() {
+        const res = await fetch('/settings');
+        const s = await res.json();
+
+        document.getElementById('motion').checked = s.ENABLE_MOTION;
+        document.getElementById('face').checked = s.ENABLE_FACE_RECOGNITION;
+        document.getElementById('notif').checked = s.ENABLE_NOTIFICATIONS;
+
+        document.getElementById('motion_sens').value = s.MOTION_SENSITIVITY;
+        document.getElementById('face_thresh').value = s.FACE_RECOGNITION_THRESHOLD;
+
+        document.getElementById('telegram_token').value = s.TELEGRAM_TOKEN;
+        document.getElementById('telegram_chat').value = s.TELEGRAM_CHAT_ID;
+    }
+
+    async function saveSettings() {
+        const data = {
+            ENABLE_MOTION: document.getElementById('motion').checked,
+            ENABLE_FACE_RECOGNITION: document.getElementById('face').checked,
+            ENABLE_NOTIFICATIONS: document.getElementById('notif').checked,
+
+            MOTION_SENSITIVITY: parseFloat(document.getElementById('motion_sens').value),
+            FACE_RECOGNITION_THRESHOLD: parseFloat(document.getElementById('face_thresh').value),
+
+            TELEGRAM_TOKEN: document.getElementById('telegram_token').value,
+            TELEGRAM_CHAT_ID: document.getElementById('telegram_chat').value
+        };
+
+        await fetch('/update_settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+
+        alert("✅ Settings saved");
+    }
+
+    loadSettings();
+
 </script>
 
 </body>
