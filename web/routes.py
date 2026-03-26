@@ -1,8 +1,8 @@
-from flask import Blueprint, Response, jsonify, render_template
+from flask import Blueprint, Response, jsonify, render_template, request
 import cv2
-import time
 import os
 import shutil
+import time
 import threading
 
 from core import state
@@ -14,8 +14,10 @@ web = Blueprint("web", __name__)
 # =========================
 @web.route("/")
 def index():
+    # List all known people
     known_people = os.listdir("known_faces")
     return render_template("index.html", known_people=known_people)
+
 
 # =========================
 # VIDEO STREAM
@@ -27,54 +29,40 @@ def generate_frames():
             continue
 
         frame = state.latest_frame.copy()
-        if state.latest_name:
-            cv2.putText(frame, state.latest_name, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
         _, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
 
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-        time.sleep(0.03)
+        time.sleep(0.03)  # prevent CPU overload
+
 
 @web.route("/video")
 def video():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
+
 # =========================
 # LOGS
 # =========================
 @web.route("/logs")
 def get_logs():
-    return jsonify(state.logs[-50:])
+    return jsonify(state.logs[-50:])  # last 50 logs
 
-# =========================
-# ARM / DISARM
-# =========================
-@web.route("/arm")
-def arm():
-    state.system_armed = True
-    state.logs.append("🟢 System ARMED")
-    return jsonify({"status": "armed"})
-
-@web.route("/disarm")
-def disarm():
-    state.system_armed = False
-    state.logs.append("🔴 System DISARMED")
-    return jsonify({"status": "disarmed"})
 
 # =========================
 # ADD PERSON
 # =========================
-@web.route("/add_person/<name>")
-def add_person(name):
-    if not name.strip():
+@web.route("/add_person", methods=["POST"])
+def add_person():
+    name = request.form.get("name", "").strip()
+
+    if not name:
         return jsonify({"status": "invalid name"})
 
-    save_path = f"known_faces/{name}"
+    save_path = os.path.join("known_faces", name)
     os.makedirs(save_path, exist_ok=True)
 
     def capture_faces():
@@ -89,23 +77,25 @@ def add_person(name):
             cv2.imwrite(filename, frame)
             count += 1
             time.sleep(0.3)
+
         state.logs.append(f"✅ Added {count} images for {name}")
         if state.face_rec:
-            state.face_rec.reload()
+            state.face_rec.load_known_faces("known_faces")
 
     threading.Thread(target=capture_faces).start()
     return jsonify({"status": "recording started"})
+
 
 # =========================
 # REMOVE PERSON
 # =========================
 @web.route("/remove_person/<name>")
 def remove_person(name):
-    path = f"known_faces/{name}"
+    path = os.path.join("known_faces", name)
     if os.path.exists(path):
         shutil.rmtree(path)
         state.logs.append(f"❌ Removed {name}")
         if state.face_rec:
-            state.face_rec.reload()
+            state.face_rec.load_known_faces("known_faces")
         return jsonify({"status": "removed"})
     return jsonify({"status": "not found"})

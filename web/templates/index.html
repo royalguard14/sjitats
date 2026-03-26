@@ -1,78 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Security System</title>
-<style>
-body { font-family: Arial; background: #111; color: #eee; }
-.container { display: flex; flex-wrap: wrap; }
-.video-container, .logs-container, .known-container { margin: 10px; padding: 10px; background: #222; border-radius: 10px; }
-.video-container { flex: 2 1 600px; }
-.logs-container { flex: 1 1 300px; max-height: 500px; overflow-y: scroll; }
-.known-container { flex: 1 1 300px; }
-button { margin: 2px; padding: 5px 10px; }
-</style>
+    <meta charset="UTF-8">
+    <title>AI Security System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
+        h1 { color: #333; }
+        #video-stream { border: 2px solid #333; }
+        #logs { max-height: 200px; overflow-y: scroll; border: 1px solid #333; padding: 5px; background: #fff; }
+        #known-people { margin-top: 20px; }
+        .person { display: flex; justify-content: space-between; margin: 5px 0; }
+        button { margin-left: 10px; }
+    </style>
 </head>
 <body>
-<h1>🚀 AI Security System</h1>
-<div class="container">
-  <div class="video-container">
-    <img id="video" src="/video" width="640" height="480">
-  </div>
+    <h1>AI Security System</h1>
 
-  <div class="logs-container">
-    <h3>📜 Logs</h3>
-    <ul id="logs">
-      {% for log in logs %}
-      <li>{{ log }}</li>
-      {% endfor %}
-    </ul>
-  </div>
+    <h2>Live Camera</h2>
+    <img id="video-stream" src="/video" width="640" height="480">
 
-  <div class="known-container">
-    <h3>🧑 Known Persons</h3>
-    <ul id="persons">
-      {% for person in known_persons %}
-      <li>{{ person }} <button onclick="removePerson('{{ person }}')">Remove</button></li>
-      {% endfor %}
-    </ul>
-    <input type="text" id="new_person" placeholder="New person name">
+    <h2>Logs</h2>
+    <div id="logs"></div>
+
+    <h2>Known People</h2>
+    <div id="known-people">
+        {% for person in known_people %}
+        <div class="person" data-name="{{ person }}">
+            <span>{{ person }}</span>
+            <button onclick="removePerson('{{ person }}')">Remove</button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3>Add Person</h3>
+    <input type="text" id="new-person-name" placeholder="Enter name">
     <button onclick="addPerson()">Add</button>
-  </div>
-</div>
 
-<script>
-function fetchLogs(){
-  fetch("/logs").then(res=>res.json()).then(data=>{
-    const logEl = document.getElementById("logs");
-    logEl.innerHTML = "";
-    data.forEach(l=>{ const li=document.createElement("li"); li.innerText=l; logEl.appendChild(li); });
-    logEl.scrollTop = logEl.scrollHeight;
-  });
-}
-setInterval(fetchLogs, 2000);
+    <script>
+        // =========================
+        // FETCH LOGS
+        // =========================
+        async function fetchLogs() {
+            const res = await fetch('/logs');
+            const logs = await res.json();
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = logs.map(l => l).join('<br>');
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        setInterval(fetchLogs, 1000);
 
-function addPerson(){
-  const name = document.getElementById("new_person").value.trim();
-  if(name) fetch("/add_person/"+name).then(()=>{ document.getElementById("new_person").value=""; });
-}
+        // =========================
+        // ADD PERSON
+        // =========================
+        async function addPerson() {
+            const name = document.getElementById('new-person-name').value;
+            if (!name) return alert("Enter a name");
+            const res = await fetch('/add_person', {
+                method: 'POST',
+                body: new URLSearchParams({name})
+            });
+            const data = await res.json();
+            alert(data.status);
+            location.reload();
+        }
 
-function removePerson(name){
-  fetch("/remove_person/"+name).then(()=>{ fetchPersons(); });
-}
-
-function fetchPersons(){
-  fetch("/").then(res=>res.text()).then(html=>{
-    const temp = document.createElement("div");
-    temp.innerHTML = html;
-    const list = temp.querySelectorAll("#persons li");
-    const personsEl = document.getElementById("persons");
-    personsEl.innerHTML = "";
-    list.forEach(li=>{ personsEl.appendChild(li); });
-  });
-}
-setInterval(fetchPersons, 5000);
-</script>
+        // =========================
+        // REMOVE PERSON
+        // =========================
+        async function removePerson(name) {
+            const res = await fetch(`/remove_person/${name}`);
+            const data = await res.json();
+            alert(data.status);
+            location.reload();
+        }
+    </script>
 </body>
 </html>
