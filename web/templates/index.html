@@ -172,6 +172,60 @@
 
 </div>
 
+
+<div class="card">
+    <h2>⚙️ Settings</h2>
+
+    <label><input type="checkbox" id="motion"> Motion</label><br>
+    <label><input type="checkbox" id="face"> Face</label><br>
+    <label><input type="checkbox" id="notif"> Notifications</label><br>
+
+    <br>
+
+    <label>Motion Sensitivity</label>
+    <input id="motion_sens" type="number" step="0.1"><br>
+
+    <label>Face Threshold</label>
+    <input id="face_thresh" type="number" step="0.1"><br>
+
+    <br>
+    <button onclick="saveSettings()">Save</button>
+</div>
+
+<script>
+async function loadSettings() {
+    const res = await fetch('/settings');
+    const s = await res.json();
+
+    document.getElementById('motion').checked = s.ENABLE_MOTION;
+    document.getElementById('face').checked = s.ENABLE_FACE_RECOGNITION;
+    document.getElementById('notif').checked = s.ENABLE_NOTIFICATIONS;
+
+    document.getElementById('motion_sens').value = s.MOTION_SENSITIVITY;
+    document.getElementById('face_thresh').value = s.FACE_RECOGNITION_THRESHOLD;
+}
+
+async function saveSettings() {
+    const data = {
+        ENABLE_MOTION: document.getElementById('motion').checked,
+        ENABLE_FACE_RECOGNITION: document.getElementById('face').checked,
+        ENABLE_NOTIFICATIONS: document.getElementById('notif').checked,
+        MOTION_SENSITIVITY: parseFloat(document.getElementById('motion_sens').value),
+        FACE_RECOGNITION_THRESHOLD: parseFloat(document.getElementById('face_thresh').value)
+    };
+
+    await fetch('/update_settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+
+    alert("Saved!");
+}
+
+loadSettings();
+</script>
+
 <script>
     // =========================
     // LOGS
