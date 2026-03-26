@@ -1,4 +1,4 @@
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, jsonify, render_template
 import cv2
 import time
 import os
@@ -9,18 +9,31 @@ from core import state
 web = Blueprint("web", __name__)
 
 # =========================
+# HOME PAGE
+# =========================
+@web.route("/")
+def index():
+    return render_template("index.html")
+
+
+# =========================
 # VIDEO STREAM
 # =========================
 def generate_frames():
     while True:
         if state.latest_frame is None:
+            time.sleep(0.05)
             continue
 
-        _, buffer = cv2.imencode('.jpg', state.latest_frame)
-        frame = buffer.tobytes()
+        frame = state.latest_frame.copy()
+
+        _, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
 
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+        time.sleep(0.03)  # 🔥 prevent CPU overload
 
 
 @web.route("/video")
@@ -67,40 +80,45 @@ def disarm():
 
 
 # =========================
-# ADD PERSON
+# ADD PERSON (NON-BLOCKING FIX)
 # =========================
 @web.route("/add_person/<name>")
 def add_person(name):
 
-    if not name:
-        return {"status": "invalid name"}
+    if not name.strip():
+        return jsonify({"status": "invalid name"})
 
     save_path = f"dataset/{name}"
     os.makedirs(save_path, exist_ok=True)
 
-    count = 0
-    start_time = time.time()
+    def capture_faces():
+        count = 0
+        start_time = time.time()
 
-    while time.time() - start_time < 10:
+        while time.time() - start_time < 10:
 
-        if state.latest_frame is None:
-            continue
+            if state.latest_frame is None:
+                time.sleep(0.1)
+                continue
 
-        frame = state.latest_frame.copy()
+            frame = state.latest_frame.copy()
 
-        filename = f"{save_path}/{int(time.time()*1000)}.jpg"
-        cv2.imwrite(filename, frame)
+            filename = f"{save_path}/{int(time.time()*1000)}.jpg"
+            cv2.imwrite(filename, frame)
 
-        count += 1
-        time.sleep(0.3)
+            count += 1
+            time.sleep(0.3)
 
-    state.logs.append(f"✅ Added {count} images for {name}")
+        state.logs.append(f"✅ Added {count} images for {name}")
 
-    # 🔥 reload model
-    if state.face_rec:
-        state.face_rec.reload()
+        if state.face_rec:
+            state.face_rec.reload()
 
-    return {"status": "done"}
+    # 🔥 run in background (IMPORTANT FIX)
+    import threading
+    threading.Thread(target=capture_faces).start()
+
+    return jsonify({"status": "recording started"})
 
 
 # =========================
@@ -118,6 +136,6 @@ def remove_person(name):
         if state.face_rec:
             state.face_rec.reload()
 
-        return {"status": "removed"}
+        return jsonify({"status": "removed"})
 
-    return {"status": "not found"}
+    return jsonify({"status": "not found"})
