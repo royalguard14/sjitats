@@ -1,5 +1,10 @@
 from flask import Blueprint, Response, jsonify, render_template
-import cv2, time, os, shutil, threading
+import cv2
+import time
+import os
+import shutil
+import threading
+
 from core import state
 
 web = Blueprint("web", __name__)
@@ -9,8 +14,8 @@ web = Blueprint("web", __name__)
 # =========================
 @web.route("/")
 def index():
-    known_persons = os.listdir("dataset")
-    return render_template("index.html", known_persons=known_persons, logs=state.logs)
+    known_people = os.listdir("known_faces")
+    return render_template("index.html", known_people=known_people)
 
 # =========================
 # VIDEO STREAM
@@ -20,11 +25,18 @@ def generate_frames():
         if state.latest_frame is None:
             time.sleep(0.05)
             continue
+
         frame = state.latest_frame.copy()
+        if state.latest_name:
+            cv2.putText(frame, state.latest_name, (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
         _, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
+
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
         time.sleep(0.03)
 
 @web.route("/video")
@@ -61,7 +73,8 @@ def disarm():
 def add_person(name):
     if not name.strip():
         return jsonify({"status": "invalid name"})
-    save_path = f"dataset/{name}"
+
+    save_path = f"known_faces/{name}"
     os.makedirs(save_path, exist_ok=True)
 
     def capture_faces():
@@ -78,7 +91,7 @@ def add_person(name):
             time.sleep(0.3)
         state.logs.append(f"✅ Added {count} images for {name}")
         if state.face_rec:
-            state.face_rec.load_known_faces("dataset")
+            state.face_rec.reload()
 
     threading.Thread(target=capture_faces).start()
     return jsonify({"status": "recording started"})
@@ -88,11 +101,11 @@ def add_person(name):
 # =========================
 @web.route("/remove_person/<name>")
 def remove_person(name):
-    path = f"dataset/{name}"
+    path = f"known_faces/{name}"
     if os.path.exists(path):
         shutil.rmtree(path)
         state.logs.append(f"❌ Removed {name}")
         if state.face_rec:
-            state.face_rec.load_known_faces("dataset")
+            state.face_rec.reload()
         return jsonify({"status": "removed"})
     return jsonify({"status": "not found"})

@@ -1,10 +1,11 @@
-# main.py
 from sensors.pir import PIRSensor
 from hardware.alarm import AlarmSystem
 from sensors.camera import Camera
 from detection.face_recognition import FaceRecognition
+
 from hardware.telegram_bot import TelegramBot
 from config.settings import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+
 from core import state
 
 import time
@@ -16,54 +17,56 @@ import threading
 def add_log(msg):
     print(msg)
     state.logs.append(msg)
-    # Limit logs to last 100 entries
-    if len(state.logs) > 100:
-        state.logs = state.logs[-100:]
 
 # =========================
-# TELEGRAM ALERT
+# MAIN SYSTEM
 # =========================
-def send_telegram_async(frame):
-    telegram = TelegramBot(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
-    telegram.send_message("🚨 Intruder detected!")
-    telegram.send_image(frame, caption="Unknown person detected!")
-
-# =========================
-# MAIN SYSTEM LOOP
-# =========================
-def security_loop():
+def run_system():
     pir = PIRSensor()
     alarm = AlarmSystem()
     cam = Camera()
     face_rec = FaceRecognition()
     state.face_rec = face_rec
+    telegram = TelegramBot(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
 
     add_log("🚀 AI Security System Running...")
 
     motion_count = 0
     no_motion_count = 0
-    known_count = 0
-    unknown_count = 0
-    motion_active = False
-    alert_sent = False
-
     MOTION_THRESHOLD = 2
     NO_MOTION_THRESHOLD = 100
-    FACE_THRESHOLD = 2
-    PROCESS_EVERY = 2
-    loop_counter = 0
 
+    known_count = 0
+    unknown_count = 0
+    FACE_THRESHOLD = 2
+
+    motion_active = False
+    alert_sent = False
+    loop_counter = 0
+    PROCESS_EVERY = 2
+
+    # =========================
+    # Async Telegram alert
+    # =========================
+    def send_telegram_async(frame):
+        telegram.send_message("🚨 Intruder detected!")
+        telegram.send_image(frame, caption="Unknown person detected!")
+
+    # =========================
+    # MAIN LOOP
+    # =========================
     while True:
         if not state.system_armed:
-            time.sleep(0.2)
+            time.sleep(0.5)
             continue
 
+        # PIR DETECTION
         if pir.detect():
             motion_count += 1
             no_motion_count = 0
         else:
-            no_motion_count += 1
             motion_count = 0
+            no_motion_count += 1
 
         if motion_count >= MOTION_THRESHOLD:
             if not motion_active:
@@ -76,8 +79,10 @@ def security_loop():
                 continue
 
             frame = cam.capture_frame()
-            state.latest_frame = frame.copy()
+            if frame is None:
+                continue
 
+            state.latest_frame = frame.copy()
             name = face_rec.recognize(frame)
             state.latest_name = name
 
@@ -103,6 +108,7 @@ def security_loop():
                     threading.Thread(target=send_telegram_async, args=(frame,)).start()
                     alert_sent = True
 
+        # RESET NO MOTION
         if motion_active and no_motion_count >= NO_MOTION_THRESHOLD:
             add_log("😴 System reset")
             motion_active = False
@@ -115,7 +121,8 @@ def security_loop():
         time.sleep(0.1)
 
 # =========================
-# START SYSTEM IN THREAD
+# START SYSTEM THREAD
 # =========================
 def start_system():
-    threading.Thread(target=security_loop, daemon=True).start()
+    import threading
+    threading.Thread(target=run_system, daemon=True).start()
