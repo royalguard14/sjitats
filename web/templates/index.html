@@ -1,95 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>AI Security System</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
-        h1 { color: #333; }
-        .container { display: flex; gap: 20px; }
-        .video, .logs, .persons { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .video img { width: 640px; height: 480px; border-radius: 8px; }
-        .logs { max-height: 480px; overflow-y: scroll; width: 300px; }
-        .logs p { margin: 5px 0; font-family: monospace; }
-        .persons ul { list-style: none; padding: 0; }
-        .persons li { margin: 5px 0; }
-        button { margin-left: 10px; padding: 5px 10px; cursor: pointer; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Security System</title>
+<style>
+body { font-family: Arial; background: #111; color: #eee; }
+.container { display: flex; flex-wrap: wrap; }
+.video-container, .logs-container, .known-container { margin: 10px; padding: 10px; background: #222; border-radius: 10px; }
+.video-container { flex: 2 1 600px; }
+.logs-container { flex: 1 1 300px; max-height: 500px; overflow-y: scroll; }
+.known-container { flex: 1 1 300px; }
+button { margin: 2px; padding: 5px 10px; }
+</style>
 </head>
 <body>
-
 <h1>🚀 AI Security System</h1>
-
 <div class="container">
-    <!-- VIDEO STREAM -->
-    <div class="video">
-        <h2>Camera</h2>
-        <img src="{{ url_for('web.video') }}" alt="Live Stream">
-    </div>
+  <div class="video-container">
+    <img id="video" src="/video" width="640" height="480">
+  </div>
 
-    <!-- LOGS -->
-    <div class="logs">
-        <h2>Logs</h2>
-        <div id="logContainer"></div>
-    </div>
+  <div class="logs-container">
+    <h3>📜 Logs</h3>
+    <ul id="logs">
+      {% for log in logs %}
+      <li>{{ log }}</li>
+      {% endfor %}
+    </ul>
+  </div>
 
-    <!-- KNOWN PERSONS -->
-    <div class="persons">
-        <h2>Known Persons</h2>
-        <ul id="personList">
-            {% for p in known_persons %}
-                <li>{{ p }} <button onclick="removePerson('{{ p }}')">Remove</button></li>
-            {% endfor %}
-        </ul>
-
-        <input type="text" id="newPerson" placeholder="Enter name">
-        <button onclick="addPerson()">Add Person</button>
-    </div>
+  <div class="known-container">
+    <h3>🧑 Known Persons</h3>
+    <ul id="persons">
+      {% for person in known_persons %}
+      <li>{{ person }} <button onclick="removePerson('{{ person }}')">Remove</button></li>
+      {% endfor %}
+    </ul>
+    <input type="text" id="new_person" placeholder="New person name">
+    <button onclick="addPerson()">Add</button>
+  </div>
 </div>
 
 <script>
-    // =========================
-    // FETCH LOGS PERIODICALLY
-    // =========================
-    async function fetchLogs() {
-        const res = await fetch('/logs');
-        const logs = await res.json();
-        const container = document.getElementById('logContainer');
-        container.innerHTML = '';
-        logs.forEach(log => {
-            const p = document.createElement('p');
-            p.textContent = log;
-            container.appendChild(p);
-        });
-        container.scrollTop = container.scrollHeight;
-    }
-    setInterval(fetchLogs, 1000); // every 1 sec
+function fetchLogs(){
+  fetch("/logs").then(res=>res.json()).then(data=>{
+    const logEl = document.getElementById("logs");
+    logEl.innerHTML = "";
+    data.forEach(l=>{ const li=document.createElement("li"); li.innerText=l; logEl.appendChild(li); });
+    logEl.scrollTop = logEl.scrollHeight;
+  });
+}
+setInterval(fetchLogs, 2000);
 
-    // =========================
-    // ADD PERSON
-    // =========================
-    async function addPerson() {
-        const name = document.getElementById('newPerson').value.trim();
-        if (!name) return alert("Enter a valid name");
+function addPerson(){
+  const name = document.getElementById("new_person").value.trim();
+  if(name) fetch("/add_person/"+name).then(()=>{ document.getElementById("new_person").value=""; });
+}
 
-        const res = await fetch(`/add_person/${name}`);
-        const data = await res.json();
-        alert(data.status);
-        document.getElementById('newPerson').value = '';
-        setTimeout(() => location.reload(), 2000); // reload to show new person
-    }
+function removePerson(name){
+  fetch("/remove_person/"+name).then(()=>{ fetchPersons(); });
+}
 
-    // =========================
-    // REMOVE PERSON
-    // =========================
-    async function removePerson(name) {
-        if (!confirm(`Remove ${name}?`)) return;
-        const res = await fetch(`/remove_person/${name}`);
-        const data = await res.json();
-        alert(data.status);
-        location.reload();
-    }
+function fetchPersons(){
+  fetch("/").then(res=>res.text()).then(html=>{
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    const list = temp.querySelectorAll("#persons li");
+    const personsEl = document.getElementById("persons");
+    personsEl.innerHTML = "";
+    list.forEach(li=>{ personsEl.appendChild(li); });
+  });
+}
+setInterval(fetchPersons, 5000);
 </script>
-
 </body>
 </html>

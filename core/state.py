@@ -7,3 +7,5 @@ alarm_status = False
 
 # 🔥 expose face recognition globally
 face_rec = None
+
+

@@ -1,10 +1,5 @@
 from flask import Blueprint, Response, jsonify, render_template
-import cv2
-import time
-import os
-import shutil
-import threading
-
+import cv2, time, os, shutil, threading
 from core import state
 
 web = Blueprint("web", __name__)
@@ -14,10 +9,8 @@ web = Blueprint("web", __name__)
 # =========================
 @web.route("/")
 def index():
-    # Get list of known persons dynamically
-    known_persons = sorted(os.listdir("dataset")) if os.path.exists("dataset") else []
-    return render_template("index.html", known_persons=known_persons)
-
+    known_persons = os.listdir("dataset")
+    return render_template("index.html", known_persons=known_persons, logs=state.logs)
 
 # =========================
 # VIDEO STREAM
@@ -27,42 +20,24 @@ def generate_frames():
         if state.latest_frame is None:
             time.sleep(0.05)
             continue
-
         frame = state.latest_frame.copy()
         _, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
-
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
         time.sleep(0.03)
-
 
 @web.route("/video")
 def video():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
 # =========================
 # LOGS
 # =========================
 @web.route("/logs")
 def get_logs():
-    return jsonify(state.logs[-50:])  # Last 50 logs for scrollable display
-
-
-# =========================
-# STATUS
-# =========================
-@web.route("/status")
-def status():
-    return jsonify({
-        "name": state.latest_name,
-        "armed": state.system_armed,
-        "alarm": state.alarm_status
-    })
-
+    return jsonify(state.logs[-50:])
 
 # =========================
 # ARM / DISARM
@@ -73,13 +48,11 @@ def arm():
     state.logs.append("🟢 System ARMED")
     return jsonify({"status": "armed"})
 
-
 @web.route("/disarm")
 def disarm():
     state.system_armed = False
     state.logs.append("🔴 System DISARMED")
     return jsonify({"status": "disarmed"})
-
 
 # =========================
 # ADD PERSON
@@ -88,7 +61,6 @@ def disarm():
 def add_person(name):
     if not name.strip():
         return jsonify({"status": "invalid name"})
-
     save_path = f"dataset/{name}"
     os.makedirs(save_path, exist_ok=True)
 
@@ -104,14 +76,12 @@ def add_person(name):
             cv2.imwrite(filename, frame)
             count += 1
             time.sleep(0.3)
-
         state.logs.append(f"✅ Added {count} images for {name}")
         if state.face_rec:
-            state.face_rec.reload()
+            state.face_rec.load_known_faces("dataset")
 
     threading.Thread(target=capture_faces).start()
     return jsonify({"status": "recording started"})
-
 
 # =========================
 # REMOVE PERSON
@@ -123,6 +93,6 @@ def remove_person(name):
         shutil.rmtree(path)
         state.logs.append(f"❌ Removed {name}")
         if state.face_rec:
-            state.face_rec.reload()
+            state.face_rec.load_known_faces("dataset")
         return jsonify({"status": "removed"})
     return jsonify({"status": "not found"})
