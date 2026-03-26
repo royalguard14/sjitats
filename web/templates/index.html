@@ -2,77 +2,189 @@
 <html>
 <head>
     <title>AI Security System</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        header {
+            padding: 15px;
+            text-align: center;
+            background: #020617;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        img {
+            width: 100%;
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .arm { background: #22c55e; }
+        .disarm { background: #ef4444; }
+        .add { background: #3b82f6; }
+        .remove { background: #f97316; }
+
+        input {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            width: 80%;
+        }
+
+        .status {
+            font-size: 18px;
+            margin: 5px 0;
+        }
+
+        .log {
+            font-size: 14px;
+            border-bottom: 1px solid #334155;
+            padding: 5px 0;
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 
-<body style="background:black; color:white; text-align:center;">
+<body>
 
-    <h1>🔒 AI Security System</h1>
+<header>
+    🔒 AI Security Dashboard
+</header>
 
-    <h2 id="face">Face: Unknown</h2>
-    <h3 id="system">System: ---</h3>
-    <h3 id="alarm">Alarm: ---</h3>
+<div class="container">
 
-    <button onclick="arm()">🟢 ARM</button>
-    <button onclick="disarm()">🔴 DISARM</button>
+    <!-- LEFT SIDE -->
+    <div class="card">
+        <h3>📷 Live Camera</h3>
+        <img src="/video">
+    </div>
 
-    <br><br>
+    <!-- RIGHT SIDE -->
+    <div>
 
-    <img src="/video" width="70%">
+        <!-- STATUS -->
+        <div class="card">
+            <h3>📊 Status</h3>
+            <div id="face" class="status">Face: ---</div>
+            <div id="system" class="status">System: ---</div>
+            <div id="alarm" class="status">Alarm: ---</div>
+        </div>
 
-    <h3>Logs:</h3>
-    <div id="logs"></div>
+        <!-- CONTROLS -->
+        <div class="card">
+            <h3>🎮 Controls</h3>
+            <button class="arm" onclick="arm()">ARM</button>
+            <button class="disarm" onclick="disarm()">DISARM</button>
+        </div>
 
-    <h3>Manage Faces</h3>
+        <!-- FACE MANAGEMENT -->
+        <div class="card">
+            <h3>👤 Manage Faces</h3>
 
-    <input type="text" id="name" placeholder="Enter name">
-    <br><br>
+            <input type="text" id="name" placeholder="Enter name">
 
-    <button onclick="addPerson()">➕ Add Person</button>
-    <button onclick="removePerson()">❌ Remove Person</button>
+            <br><br>
 
-    <script>
-        function arm() { fetch('/arm'); }
-        function disarm() { fetch('/disarm'); }
+            <button class="add" onclick="addPerson()">Add</button>
+            <button class="remove" onclick="removePerson()">Remove</button>
+        </div>
 
-        function addPerson() {
-            let name = document.getElementById("name").value;
-            fetch('/add_person/' + name);
-        }
+        <!-- LOGS -->
+        <div class="card">
+            <h3>📜 Logs</h3>
+            <div id="logs"></div>
+        </div>
 
-        function removePerson() {
-            let name = document.getElementById("name").value;
-            fetch('/remove_person/' + name);
-        }
+    </div>
+</div>
 
-        setInterval(() => {
+<script>
 
-            fetch('/logs')
-                .then(res => res.json())
-                .then(data => {
-                    let logsDiv = document.getElementById("logs");
-                    logsDiv.innerHTML = "";
-                    data.forEach(log => {
-                        let p = document.createElement("p");
-                        p.textContent = log;
-                        logsDiv.appendChild(p);
-                    });
-                });
+function arm() {
+    fetch('/arm');
+}
 
-            fetch('/status')
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById("face").innerText =
-                        "Face: " + data.name;
+function disarm() {
+    fetch('/disarm');
+}
 
-                    document.getElementById("system").innerText =
-                        "System: " + (data.armed ? "ARMED" : "DISARMED");
+function addPerson() {
+    let name = document.getElementById("name").value;
+    fetch('/add_person/' + name);
+}
 
-                    document.getElementById("alarm").innerText =
-                        "Alarm: " + (data.alarm ? "ON" : "OFF");
-                });
+function removePerson() {
+    let name = document.getElementById("name").value;
+    fetch('/remove_person/' + name);
+}
 
-        }, 1000);
-    </script>
+// 🔄 LIVE UPDATE
+setInterval(() => {
+
+    fetch('/status')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("face").innerText =
+                "Face: " + data.name;
+
+            document.getElementById("system").innerText =
+                "System: " + (data.armed ? "ARMED" : "DISARMED");
+
+            document.getElementById("alarm").innerText =
+                "Alarm: " + (data.alarm ? "ON" : "OFF");
+        });
+
+    fetch('/logs')
+        .then(res => res.json())
+        .then(data => {
+            let logsDiv = document.getElementById("logs");
+            logsDiv.innerHTML = "";
+
+            data.reverse().forEach(log => {
+                let div = document.createElement("div");
+                div.className = "log";
+                div.textContent = log;
+                logsDiv.appendChild(div);
+            });
+        });
+
+}, 1000);
+
+</script>
 
 </body>
 </html>
