@@ -2,77 +2,245 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Security System</title>
+    <title>AI Security Dashboard</title>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
-        h1 { color: #333; }
-        #video-stream { border: 2px solid #333; }
-        #logs { max-height: 200px; overflow-y: scroll; border: 1px solid #333; padding: 5px; background: #fff; }
-        #known-people { margin-top: 20px; }
-        .person { display: flex; justify-content: space-between; margin: 5px 0; }
-        button { margin-left: 10px; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        header {
+            background: #020617;
+            padding: 15px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            padding: 15px;
+        }
+
+        .card {
+            background: #020617;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #1e293b;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #38bdf8;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 10px;
+        }
+
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .armed { background: #22c55e; }
+        .disarmed { background: #ef4444; }
+        .alarm { background: #f97316; }
+
+        #logs {
+            height: 250px;
+            overflow-y: auto;
+            background: #020617;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .person {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+
+        button {
+            background: #38bdf8;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            color: black;
+        }
+
+        button:hover {
+            background: #0ea5e9;
+        }
+
+        input {
+            padding: 6px;
+            border-radius: 5px;
+            border: none;
+            margin-right: 5px;
+        }
     </style>
 </head>
 <body>
-    <h1>AI Security System</h1>
 
-    <h2>Live Camera</h2>
-    <img id="video-stream" src="/video" width="640" height="480">
+<header>🛡️ AI Security Dashboard</header>
 
-    <h2>Logs</h2>
-    <div id="logs"></div>
+<div class="container">
 
-    <h2>Known People</h2>
-    <div id="known-people">
-        {% for person in known_people %}
-        <div class="person" data-name="{{ person }}">
-            <span>{{ person }}</span>
-            <button onclick="removePerson('{{ person }}')">Remove</button>
+    <!-- LEFT SIDE -->
+    <div>
+
+        <!-- CAMERA -->
+        <div class="card">
+            <h2>📷 Live Camera</h2>
+            <img id="video" src="/video">
         </div>
-        {% endfor %}
+
+        <!-- LOGS -->
+        <div class="card">
+            <h2>📜 Logs</h2>
+            <div id="logs"></div>
+        </div>
+
     </div>
 
-    <h3>Add Person</h3>
-    <input type="text" id="new-person-name" placeholder="Enter name">
-    <button onclick="addPerson()">Add</button>
+    <!-- RIGHT SIDE -->
+    <div>
 
-    <script>
-        // =========================
-        // FETCH LOGS
-        // =========================
-        async function fetchLogs() {
-            const res = await fetch('/logs');
-            const logs = await res.json();
-            const logsDiv = document.getElementById('logs');
-            logsDiv.innerHTML = logs.map(l => l).join('<br>');
-            logsDiv.scrollTop = logsDiv.scrollHeight;
-        }
-        setInterval(fetchLogs, 1000);
+        <!-- STATUS -->
+        <div class="card">
+            <h2>📊 System Status</h2>
 
-        // =========================
-        // ADD PERSON
-        // =========================
-        async function addPerson() {
-            const name = document.getElementById('new-person-name').value;
-            if (!name) return alert("Enter a name");
-            const res = await fetch('/add_person', {
-                method: 'POST',
-                body: new URLSearchParams({name})
-            });
-            const data = await res.json();
-            alert(data.status);
-            location.reload();
-        }
+            <div class="status">
+                <span>System:</span>
+                <span id="armed" class="badge disarmed">DISARMED</span>
+            </div>
 
-        // =========================
-        // REMOVE PERSON
-        // =========================
-        async function removePerson(name) {
-            const res = await fetch(`/remove_person/${name}`);
-            const data = await res.json();
-            alert(data.status);
-            location.reload();
-        }
-    </script>
+            <div class="status">
+                <span>Alarm:</span>
+                <span id="alarm" class="badge">OFF</span>
+            </div>
+
+            <div class="status">
+                <span>Last Detection:</span>
+                <span id="name">None</span>
+            </div>
+
+            <br>
+
+            <button onclick="arm()">ARM</button>
+            <button onclick="disarm()">DISARM</button>
+        </div>
+
+        <!-- KNOWN PEOPLE -->
+        <div class="card">
+            <h2>👤 Known People</h2>
+
+            <div id="people">
+                {% for person in known_people %}
+                <div class="person">
+                    <span>{{ person }}</span>
+                    <button onclick="removePerson('{{ person }}')">Remove</button>
+                </div>
+                {% endfor %}
+            </div>
+
+            <br>
+
+            <input id="newName" placeholder="Enter name">
+            <button onclick="addPerson()">Add</button>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    // =========================
+    // LOGS
+    // =========================
+    async function fetchLogs() {
+        const res = await fetch('/logs');
+        const logs = await res.json();
+
+        const logsDiv = document.getElementById('logs');
+        logsDiv.innerHTML = logs.map(l => "• " + l).join('<br>');
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+    setInterval(fetchLogs, 1000);
+
+    // =========================
+    // STATUS
+    // =========================
+    async function fetchStatus() {
+        const res = await fetch('/status');
+        const data = await res.json();
+
+        const armed = document.getElementById('armed');
+        const alarm = document.getElementById('alarm');
+
+        armed.textContent = data.armed ? "ARMED" : "DISARMED";
+        armed.className = "badge " + (data.armed ? "armed" : "disarmed");
+
+        alarm.textContent = data.alarm ? "ALARM" : "OFF";
+        alarm.className = "badge " + (data.alarm ? "alarm" : "");
+
+        document.getElementById('name').textContent = data.name;
+    }
+    setInterval(fetchStatus, 1000);
+
+    // =========================
+    // ARM / DISARM
+    // =========================
+    function arm() {
+        fetch('/arm');
+    }
+
+    function disarm() {
+        fetch('/disarm');
+    }
+
+    // =========================
+    // ADD PERSON
+    // =========================
+    async function addPerson() {
+        const name = document.getElementById('newName').value;
+        if (!name) return alert("Enter name");
+
+        await fetch('/add_person', {
+            method: 'POST',
+            body: new URLSearchParams({name})
+        });
+
+        alert("📸 Capturing faces for 10 seconds...");
+        setTimeout(() => location.reload(), 11000);
+    }
+
+    // =========================
+    // REMOVE PERSON
+    // =========================
+    async function removePerson(name) {
+        await fetch(`/remove_person/${name}`);
+        location.reload();
+    }
+</script>
+
 </body>
 </html>
