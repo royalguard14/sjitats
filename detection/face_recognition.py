@@ -9,10 +9,15 @@ class FaceRecognition:
         self.known_names = []
         self.load_known_faces(self.known_faces_path)
 
-    def load_known_faces(self, path):
+    def load_known_faces(self, path=None):
+        """Load all faces from known_faces folder."""
+        if path is None:
+            path = self.known_faces_path
+
+        self.known_encodings = []
+        self.known_names = []
+
         print("🔄 Loading known faces...")
-        self.known_encodings.clear()
-        self.known_names.clear()
 
         for person_name in os.listdir(path):
             person_path = os.path.join(path, person_name)
@@ -31,6 +36,7 @@ class FaceRecognition:
         print(f"✅ Loaded {len(self.known_names)} face samples")
 
     def recognize(self, frame):
+        """Return the name of recognized person or 'Unknown'."""
         if frame is None:
             return "Unknown"
 
@@ -43,7 +49,5 @@ class FaceRecognition:
             if True in matches:
                 index = matches.index(True)
                 return self.known_names[index]
-        return "Unknown"
 
-    def reload(self):
-        self.load_known_faces(self.known_faces_path)
+        return "Unknown"
