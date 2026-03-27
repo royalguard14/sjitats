@@ -2,6 +2,7 @@ from sensors.pir import PIRSensor
 from hardware.alarm import AlarmSystem
 from sensors.camera import Camera
 from detection.face_recognition import FaceRecognition
+from utils.confusion_matrix_logger import log_result
 
 from hardware.telegram_bot import TelegramBot
 from config.settings_manager import load_settings
@@ -12,10 +13,14 @@ import time
 import threading
 
 # =========================
+# LOG FUNCTION
+# =========================
 def add_log(msg):
     print(msg)
     state.logs.append(msg)
 
+# =========================
+# MAIN SYSTEM
 # =========================
 def run_system():
 
@@ -23,7 +28,19 @@ def run_system():
     alarm = AlarmSystem()
     cam = Camera()
     face_rec = FaceRecognition()
+
     state.face_rec = face_rec
+
+    # ✅ Load settings ONCE
+    settings = load_settings()
+
+    # ✅ Create telegram ONCE
+    telegram = None
+    if settings["ENABLE_NOTIFICATIONS"]:
+        telegram = TelegramBot(
+            settings["TELEGRAM_TOKEN"],
+            settings["TELEGRAM_CHAT_ID"]
+        )
 
     add_log("🚀 AI Security System Running...")
 
@@ -37,19 +54,25 @@ def run_system():
     alert_sent = False
 
     loop_counter = 0
+    PROCESS_EVERY = 2  # controls speed
 
     while True:
 
-        settings = load_settings()  # 🔥 dynamic load
+        # =========================
+        # Reload settings occasionally
+        # =========================
+        if loop_counter % 10 == 0:
+            settings = load_settings()
 
         if not state.system_armed:
             time.sleep(0.3)
             continue
 
         # =========================
-        # MOTION
+        # MOTION DETECTION
         # =========================
         if settings["ENABLE_MOTION"]:
+
             if pir.detect():
                 motion_count += 1
                 no_motion_count = 0
@@ -57,8 +80,11 @@ def run_system():
                 no_motion_count += 1
                 motion_count = 0
         else:
-            motion_count = 2  # always active if disabled
+            motion_count = 2  # force active
 
+        # =========================
+        # MOTION CONFIRMED
+        # =========================
         if motion_count >= 2:
 
             if not motion_active:
@@ -66,10 +92,13 @@ def run_system():
                 motion_active = True
 
             loop_counter += 1
-            if loop_counter % 2 != 0:
+
+            if loop_counter % PROCESS_EVERY != 0:
+                time.sleep(0.05)
                 continue
 
             frame = cam.capture_frame()
+
             if frame is None:
                 continue
 
@@ -79,13 +108,28 @@ def run_system():
             # FACE RECOGNITION
             # =========================
             if settings["ENABLE_FACE_RECOGNITION"]:
-                name = face_rec.recognize(frame)
+                name, confidence = face_rec.recognize(frame)
             else:
-                name = "Disabled"
+                name, confidence = "Disabled", 0.0
 
-            state.latest_name = name
-            add_log(f"👁 Detected: {name}")
+            state.latest_name = f"{name} ({confidence*100:.2f}%)"
 
+            add_log(f"👁 Detected: {name} ({confidence*100:.2f}%)")
+
+
+            # =========================
+            # CONFUSION MATRIX LOGGING
+            # =========================
+            if settings.get("TEST_MODE", False):
+                actual = settings.get("EXPECTED_NAME", "Unknown")
+            else:
+                actual = "Unknown"
+
+            log_result(name, actual)
+
+            # =========================
+            # CLASSIFICATION
+            # =========================
             if name != "Unknown" and name != "Disabled":
                 known_count += 1
                 unknown_count = 0
@@ -93,34 +137,44 @@ def run_system():
                 unknown_count += 1
                 known_count = 0
 
+            # =========================
+            # AUTHORIZED
+            # =========================
             if known_count >= 2:
                 add_log(f"✅ Authorized: {name}")
+
                 alarm.alarm_off()
                 state.alarm_status = False
                 alert_sent = False
 
+            # =========================
+            # INTRUDER
+            # =========================
             elif unknown_count >= 2:
                 add_log("🚨 Intruder detected!")
+
                 alarm.alarm_on()
                 state.alarm_status = True
 
-                if settings["ENABLE_NOTIFICATIONS"] and not alert_sent:
-                    telegram = TelegramBot(
-                        settings["TELEGRAM_TOKEN"],
-                        settings["TELEGRAM_CHAT_ID"]
-                    )
+                # =========================
+                # TELEGRAM (NO SPAM)
+                # =========================
+                if settings["ENABLE_NOTIFICATIONS"] and not alert_sent and telegram:
 
-                    threading.Thread(
-                        target=lambda: (
-                            telegram.send_message("🚨 Intruder detected!"),
-                            telegram.send_image(frame)
-                        )
-                    ).start()
+                    def send_alert():
+                        telegram.send_message("🚨 Intruder detected!")
+                        telegram.send_image(frame)
+
+                    threading.Thread(target=send_alert).start()
 
                     alert_sent = True
 
+        # =========================
+        # RESET SYSTEM
+        # =========================
         if motion_active and no_motion_count >= 100:
             add_log("😴 System reset")
+
             motion_active = False
             known_count = 0
             unknown_count = 0

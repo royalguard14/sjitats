@@ -7,14 +7,14 @@
     <style>
         body {
             margin: 0;
-            font-family: "Segoe UI", Arial;
+            font-family: Arial, sans-serif;
             background: #0f172a;
             color: #e2e8f0;
         }
 
         header {
             background: #020617;
-            padding: 15px 20px;
+            padding: 15px;
             font-size: 20px;
             font-weight: bold;
             border-bottom: 1px solid #1e293b;
@@ -29,12 +29,13 @@
 
         .card {
             background: #020617;
-            border-radius: 10px;
             padding: 15px;
+            border-radius: 10px;
             border: 1px solid #1e293b;
+            margin-bottom: 15px;
         }
 
-        .card h2 {
+        h2 {
             margin-top: 0;
             color: #38bdf8;
         }
@@ -44,42 +45,25 @@
             border-radius: 10px;
         }
 
-        .status {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-
-        .badge {
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-
-        .armed { background: #22c55e; }
-        .disarmed { background: #ef4444; }
-        .alarm { background: #f97316; }
-
         #logs {
             height: 250px;
             overflow-y: auto;
-            background: #020617;
+            background: #000;
             padding: 10px;
-            border-radius: 5px;
             font-size: 13px;
+            border-radius: 5px;
         }
 
         .person {
             display: flex;
             justify-content: space-between;
-            border-bottom: 1px solid #1e293b;
-            padding: 5px 0;
+            margin-bottom: 5px;
         }
 
         input {
             width: 100%;
-            margin: 5px 0;
             padding: 6px;
+            margin: 5px 0;
             border-radius: 5px;
             border: none;
         }
@@ -90,14 +74,19 @@
             padding: 6px 10px;
             border-radius: 5px;
             cursor: pointer;
-            color: black;
         }
 
         button:hover {
             background: #0ea5e9;
         }
+
+        .status {
+            margin-bottom: 5px;
+        }
+
     </style>
 </head>
+
 <body>
 
 <header>🛡️ AI Security Dashboard</header>
@@ -127,18 +116,15 @@
             <h2>📊 Status</h2>
 
             <div class="status">
-                <span>System</span>
-                <span id="armed" class="badge disarmed">DISARMED</span>
+                System: <span id="armed">DISARMED</span>
             </div>
 
             <div class="status">
-                <span>Alarm</span>
-                <span id="alarm" class="badge">OFF</span>
+                Alarm: <span id="alarm">OFF</span>
             </div>
 
             <div class="status">
-                <span>Last</span>
-                <span id="name">None</span>
+                Last: <span id="name">None</span>
             </div>
 
             <br>
@@ -169,8 +155,9 @@
             <h2>⚙️ Settings</h2>
 
             <label><input type="checkbox" id="motion"> Enable Motion</label><br>
-            <label><input type="checkbox" id="face"> Enable Face</label><br>
+            <label><input type="checkbox" id="face"> Enable Face Recognition</label><br>
             <label><input type="checkbox" id="notif"> Enable Telegram</label><br>
+            <label><input type="checkbox" id="use_knn"> Use KNN</label><br>
 
             <br>
 
@@ -180,15 +167,15 @@
             <label>Face Threshold</label>
             <input id="face_thresh" type="number" step="0.1">
 
-            <br>
+            <br><br>
 
             <h3>📩 Telegram</h3>
 
-            <label>Bot Token</label>
-            <input id="telegram_token" placeholder="Enter token">
+            <label>Token</label>
+            <input id="telegram_token" placeholder="Telegram Bot Token">
 
             <label>Chat ID</label>
-            <input id="telegram_chat" placeholder="Enter chat id">
+            <input id="telegram_chat" placeholder="Chat ID">
 
             <br>
 
@@ -202,39 +189,35 @@
 <script>
 
     // =========================
-    // LOGS
-    // =========================
-    async function fetchLogs() {
-        const res = await fetch('/logs');
-        const logs = await res.json();
-        const div = document.getElementById('logs');
-        div.innerHTML = logs.map(l => "• " + l).join("<br>");
-        div.scrollTop = div.scrollHeight;
-    }
-    setInterval(fetchLogs, 1000);
-
-    // =========================
-    // STATUS
+    // LIVE STATUS
     // =========================
     async function fetchStatus() {
         const res = await fetch('/status');
         const data = await res.json();
 
-        const armed = document.getElementById('armed');
-        const alarm = document.getElementById('alarm');
-
-        armed.textContent = data.armed ? "ARMED" : "DISARMED";
-        armed.className = "badge " + (data.armed ? "armed" : "disarmed");
-
-        alarm.textContent = data.alarm ? "ALARM" : "OFF";
-        alarm.className = "badge " + (data.alarm ? "alarm" : "");
-
+        document.getElementById('armed').textContent = data.armed ? "ARMED" : "DISARMED";
+        document.getElementById('alarm').textContent = data.alarm ? "ON" : "OFF";
         document.getElementById('name').textContent = data.name;
     }
+
     setInterval(fetchStatus, 1000);
 
     // =========================
-    // ARM/DISARM
+    // LOGS (scrollable)
+    // =========================
+    async function fetchLogs() {
+        const res = await fetch('/logs');
+        const logs = await res.json();
+
+        const div = document.getElementById('logs');
+        div.innerHTML = logs.map(l => "• " + l).join("<br>");
+        div.scrollTop = div.scrollHeight;
+    }
+
+    setInterval(fetchLogs, 1000);
+
+    // =========================
+    // ARM / DISARM
     // =========================
     function arm() { fetch('/arm'); }
     function disarm() { fetch('/disarm'); }
@@ -248,10 +231,10 @@
 
         await fetch('/add_person', {
             method: 'POST',
-            body: new URLSearchParams({name})
+            body: new URLSearchParams({ name })
         });
 
-        alert("📸 Capturing for 10 seconds...");
+        alert("📸 Capturing...");
         setTimeout(() => location.reload(), 11000);
     }
 
@@ -273,6 +256,7 @@
         document.getElementById('motion').checked = s.ENABLE_MOTION;
         document.getElementById('face').checked = s.ENABLE_FACE_RECOGNITION;
         document.getElementById('notif').checked = s.ENABLE_NOTIFICATIONS;
+        document.getElementById('use_knn').checked = s.USE_KNN;
 
         document.getElementById('motion_sens').value = s.MOTION_SENSITIVITY;
         document.getElementById('face_thresh').value = s.FACE_RECOGNITION_THRESHOLD;
@@ -286,6 +270,7 @@
             ENABLE_MOTION: document.getElementById('motion').checked,
             ENABLE_FACE_RECOGNITION: document.getElementById('face').checked,
             ENABLE_NOTIFICATIONS: document.getElementById('notif').checked,
+            USE_KNN: document.getElementById('use_knn').checked,
 
             MOTION_SENSITIVITY: parseFloat(document.getElementById('motion_sens').value),
             FACE_RECOGNITION_THRESHOLD: parseFloat(document.getElementById('face_thresh').value),
